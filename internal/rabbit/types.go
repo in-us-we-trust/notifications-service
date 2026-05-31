@@ -2,6 +2,7 @@ package rabbit
 
 import (
 	"fmt"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -36,4 +37,13 @@ func (m *Message) Ack() error {
 
 func (m *Message) Nack(requeue bool) error {
 	return m.delivery.Nack(false, requeue)
+}
+
+type Notification struct {
+	Severity string    `json:"severity"`
+	Tags     []string  `json:"tags"`
+	DeviceID string    `json:"deviceId"`
+	Time     time.Time `json:"time"`
+	Title    string    `json:"title"`
+	Message  string    `json:"message"`
 }

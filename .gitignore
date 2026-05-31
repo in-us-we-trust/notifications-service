@@ -1,10 +1,15 @@
 .env
+.env.*
+!.env.example
 bin/
 dist/
 tmp/
 *.log
 *.out
 coverage.out
+cover.out
+*.test
 .DS_Store
 .idea/
 .vscode/
+credentials/*.json
