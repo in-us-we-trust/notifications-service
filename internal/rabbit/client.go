@@ -19,10 +19,6 @@ type Client struct {
 }
 
 func NewClient(config Config, logger *slog.Logger) (*Client, error) {
-	if err := config.validate(); err != nil {
-		return nil, fmt.Errorf("invalid config: %w", err)
-	}
-
 	c := &Client{config: config, logger: logger}
 	if err := c.connect(); err != nil {
 		return nil, err

@@ -13,7 +13,7 @@ type Config struct {
 	Queue         *string `json:"queue"`
 }
 
-func (c *Config) validate() error {
+func (c *Config) Validate() error {
 	if c.URL == nil || *c.URL == "" {
 		return fmt.Errorf("url is required")
 	}

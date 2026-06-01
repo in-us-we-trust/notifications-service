@@ -22,6 +22,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	config.validate()
+
 	rabbitClient, err := rabbit.NewClient(*config.RabbitConfig, logger)
 	if err != nil {
 		logger.Error("failed to create RabbitMQ client", "error", err)

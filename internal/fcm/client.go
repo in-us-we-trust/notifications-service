@@ -14,10 +14,6 @@ type Client struct {
 }
 
 func NewClient(ctx context.Context, config Config) (*Client, error) {
-	if err := config.validate(); err != nil {
-		return nil, fmt.Errorf("invalid config: %w", err)
-	}
-
 	app, err := firebase.NewApp(ctx, nil, option.WithCredentialsFile(*config.CredentialsPath))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create firebase app: %w", err)

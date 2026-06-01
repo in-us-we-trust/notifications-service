@@ -14,10 +14,6 @@ type Client struct {
 }
 
 func NewClient(config Config) (*Client, error) {
-	if err := config.validate(); err != nil {
-		return nil, fmt.Errorf("invalid config: %w", err)
-	}
-
 	return &Client{
 		httpClient: &http.Client{},
 		config:     config,

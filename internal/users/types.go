@@ -6,7 +6,7 @@ type Config struct {
 	BaseURL *string `json:"baseURL"`
 }
 
-func (c Config) validate() error {
+func (c Config) Validate() error {
 	if c.BaseURL == nil || *c.BaseURL == "" {
 		return fmt.Errorf("base URL is required")
 	}
