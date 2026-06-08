@@ -3,6 +3,7 @@ package fcm
 import (
 	"context"
 	"fmt"
+	"os"
 
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
@@ -14,7 +15,14 @@ type Client struct {
 }
 
 func NewClient(ctx context.Context, config Config) (*Client, error) {
-	app, err := firebase.NewApp(ctx, nil, option.WithCredentialsFile(*config.CredentialsPath))
+	credBytes, err := os.ReadFile(*config.CredentialsPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read credentials file: %w", err)
+	}
+
+	app, err := firebase.NewApp(ctx, &firebase.Config{
+		ProjectID: "tp-hogar-seguro",
+	}, option.WithCredentialsJSON(credBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create firebase app: %w", err)
 	}
