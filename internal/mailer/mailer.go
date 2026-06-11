@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	TestTemplate = "test.tmpl"
+	TestTemplate         = "test.tmpl"
+	NotificationTemplate = "notification.tmpl"
 )
 
 //go:embed "templates"
@@ -84,4 +85,30 @@ func (o *Mailer) SendTestNotification(email, name string) error {
 	}
 
 	return nil
+}
+
+type NotificationPayload struct {
+	Name     string
+	Title    string
+	Message  string
+	ImageURL string
+}
+
+func (o *Mailer) SendNotification(email, name, title, message, imageURL string) error {
+	body, err := o.buildTemplate(NotificationTemplate, NotificationPayload{
+		Name:     name,
+		Title:    title,
+		Message:  message,
+		ImageURL: imageURL,
+	})
+	if err != nil {
+		return err
+	}
+
+	recipient := email
+	if o.Config.Env == "development" {
+		recipient = o.Config.DevEmail
+	}
+
+	return o.Client.Send(recipient, title, *body)
 }

@@ -21,7 +21,7 @@ func NewClient(config Config) (*Client, error) {
 }
 
 func (c *Client) GetUsersByDevice(ctx context.Context, deviceID string) ([]User, error) {
-	url := fmt.Sprintf("%s/devices/%s/users", *c.config.BaseURL, deviceID)
+	url := fmt.Sprintf("%s/devices/%s/contacts", *c.config.BaseURL, deviceID)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -44,4 +44,25 @@ func (c *Client) GetUsersByDevice(ctx context.Context, deviceID string) ([]User,
 	}
 
 	return users, nil
+}
+
+func (c *Client) DeletePushToken(ctx context.Context, userID string, appDeviceID int) error {
+	url := fmt.Sprintf("%s/users/%s/app-devices/%d/push-token", *c.config.BaseURL, userID, appDeviceID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
 }

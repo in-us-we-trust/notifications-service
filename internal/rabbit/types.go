@@ -46,4 +46,5 @@ type Notification struct {
 	Time     time.Time `json:"time"`
 	Title    string    `json:"title"`
 	Message  string    `json:"message"`
+	ImageURL string    `json:"imageUrl,omitempty"`
 }

@@ -46,6 +46,9 @@ func (c *Client) Send(ctx context.Context, token string, title string, body stri
 
 	_, err := c.messaging.Send(ctx, message)
 	if err != nil {
+		if messaging.IsUnregistered(err) {
+			return ErrTokenExpired
+		}
 		return fmt.Errorf("failed to send notification: %w", err)
 	}
 

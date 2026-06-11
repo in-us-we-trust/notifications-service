@@ -1,6 +1,11 @@
 package fcm
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+var ErrTokenExpired = errors.New("FCM token expired or unregistered")
 
 type Config struct {
 	CredentialsPath *string `json:"credentialsPath"`

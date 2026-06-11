@@ -13,10 +13,19 @@ func (c Config) Validate() error {
 	return nil
 }
 
+type NotificationToken struct {
+	AppDeviceID int    `json:"appDeviceId"`
+	DeviceName  string `json:"deviceName"`
+	Platform    string `json:"platform"`
+	Token       string `json:"token"`
+}
+
 type User struct {
-	UserID   string `json:"userId"`
-	FCMToken string `json:"fcmToken"`
-	Name     string `json:"name"`
-	LastName string `json:"lastName"`
-	Email    string `json:"email"`
+	ContactID          string              `json:"contactId"`
+	UserID             string              `json:"userId"`
+	Name               string              `json:"name"`
+	LastName           string              `json:"lastName"`
+	Email              string              `json:"email"`
+	IsOwner            bool                `json:"isOwner"`
+	NotificationTokens []NotificationToken `json:"notificationTokens"`
 }
