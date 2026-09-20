@@ -1,0 +1,56 @@
+name: CD (Deploy Notifications)
+
+on:
+  push:
+    branches: ['main']
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: ${{ secrets.GCP_REGION }}
+
+  WORKER_POOL: notifications-service
+
+  IMAGE: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/tp-hogar-seguro/notifications-service
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: |
+          gcloud auth configure-docker \
+            ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ env.IMAGE }}:${{ github.sha }} .
+
+      - name: Push Docker image
+        run: |
+          docker push \
+            ${{ env.IMAGE }}:${{ github.sha }}
+
+            - name: Deploy to Cloud Run (worker pool)
+        run: |
+          gcloud run worker-pools deploy ${{ env.WORKER_POOL }} \
+            --image ${{ env.IMAGE }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --min-instances 1 \
+            --max-instances 1 \
+            --memory 256Mi \
+            --cpu 1 \
+            --set-env-vars RABBIT_URL=${{ secrets.RABBIT_URL }},RABBIT_QUEUE=${{ secrets.RABBIT_QUEUE }},RABBIT_PREFETCH_COUNT=${{ secrets.RABBIT_PREFETCH_COUNT }},USERS_BASE_URL=${{ secrets.USERS_BASE_URL }},MAILER_FROM_EMAIL=${{ secrets.MAILER_FROM_EMAIL }},MAILER_FROM_PSW=${{ secrets.MAILER_FROM_PSW }},MAILER_FRONTEND_URL=${{ secrets.MAILER_FRONTEND_URL }},MAILER_DEV_EMAIL=${{ secrets.MAILER_DEV_EMAIL }},ENV=production,FCM_CREDENTIALS_JSON_B64=${{ secrets.FCM_CREDENTIALS_JSON_B64 }}
