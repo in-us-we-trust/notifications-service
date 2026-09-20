@@ -44,7 +44,7 @@ jobs:
           docker push \
             ${{ env.IMAGE }}:${{ github.sha }}
 
-            - name: Deploy to Cloud Run (worker pool)
+      - name: Deploy to Cloud Run (worker pool)
         run: |
           gcloud run worker-pools deploy ${{ env.WORKER_POOL }} \
             --image ${{ env.IMAGE }}:${{ github.sha }} \
