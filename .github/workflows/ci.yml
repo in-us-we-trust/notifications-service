@@ -1,0 +1,53 @@
+name: CI (Go / Notifications)
+
+on:
+  pull_request:
+    branches: ['main']
+    types: [opened, synchronize, reopened, ready_for_review]
+
+  workflow_dispatch:
+
+env:
+  GO_VERSION: '1.25'
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+      checks: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify formatting
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "The following files are not properly formatted:"
+            gofmt -l .
+            exit 1
+          fi
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Build application
+        run: go build -o /dev/null ./cmd
+
+      - name: Validate Docker build
+        run: docker build -t notification-service:test .
