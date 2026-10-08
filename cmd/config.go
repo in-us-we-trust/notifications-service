@@ -11,6 +11,7 @@ import (
 )
 
 type Config struct {
+	Port         string         `json:"port"`
 	RabbitConfig *rabbit.Config `json:"rabbitConfig"`
 	FCMConfig    *fcm.Config    `json:"fcmConfig"`
 	UsersConfig  *users.Config  `json:"usersConfig"`
@@ -23,6 +24,7 @@ func loadConfig() (*Config, error) {
 		return nil, err
 	}
 	config := &Config{
+		Port: env.GetString("PORT", "8080"),
 		RabbitConfig: &rabbit.Config{
 			URL:           toolbox.ToPointer(env.GetString("RABBIT_URL", "amqp://guest:guest@localhost:5672/")),
 			PrefetchCount: toolbox.ToPointer(1),

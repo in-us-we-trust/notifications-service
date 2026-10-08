@@ -24,4 +24,6 @@ RUN chmod +x entrypoint.sh && chown -R app:app /app
 
 USER app
 
+EXPOSE 8080
+
 ENTRYPOINT ["./entrypoint.sh"]

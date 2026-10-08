@@ -9,7 +9,7 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: ${{ secrets.GCP_REGION }}
 
-  WORKER_POOL: notifications-service
+  SERVICE_NAME: notifications-service
 
   IMAGE: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/tp-hogar-seguro/notifications-service
 
@@ -44,12 +44,26 @@ jobs:
           docker push \
             ${{ env.IMAGE }}:${{ github.sha }}
 
-      - name: Deploy to Cloud Run (worker pool)
+      # --min-instances no se pasa a propósito: se maneja a mano con
+      # `gcloud run services update --min-instances 0/1` y el deploy no debe pisarlo.
+      - name: Deploy to Cloud Run (service)
+        env:
+          RABBIT_URL: ${{ secrets.RABBIT_URL }}
+          RABBIT_QUEUE: ${{ secrets.RABBIT_QUEUE }}
+          RABBIT_PREFETCH_COUNT: ${{ secrets.RABBIT_PREFETCH_COUNT }}
+          USERS_BASE_URL: ${{ secrets.USERS_BASE_URL }}
+          MAILER_FROM_EMAIL: ${{ secrets.MAILER_FROM_EMAIL }}
+          MAILER_FROM_PSW: ${{ secrets.MAILER_FROM_PSW }}
+          MAILER_FRONTEND_URL: ${{ secrets.MAILER_FRONTEND_URL }}
+          MAILER_DEV_EMAIL: ${{ secrets.MAILER_DEV_EMAIL }}
+          FCM_CREDENTIALS_JSON_B64: ${{ secrets.FCM_CREDENTIALS_JSON_B64 }}
         run: |
-          gcloud run worker-pools deploy ${{ env.WORKER_POOL }} \
-            --image ${{ env.IMAGE }}:${{ github.sha }} \
-            --region ${{ env.REGION }} \
-            --instances 1 \
-            --memory 256Mi \
+          gcloud run deploy "$SERVICE_NAME" \
+            --image "$IMAGE:${{ github.sha }}" \
+            --region "$REGION" \
+            --no-allow-unauthenticated \
+            --no-cpu-throttling \
+            --max-instances 1 \
+            --memory 512Mi \
             --cpu 1 \
-            --set-env-vars RABBIT_URL=${{ secrets.RABBIT_URL }},RABBIT_QUEUE=${{ secrets.RABBIT_QUEUE }},RABBIT_PREFETCH_COUNT=${{ secrets.RABBIT_PREFETCH_COUNT }},USERS_BASE_URL=${{ secrets.USERS_BASE_URL }},MAILER_FROM_EMAIL=${{ secrets.MAILER_FROM_EMAIL }},MAILER_FROM_PSW=${{ secrets.MAILER_FROM_PSW }},MAILER_FRONTEND_URL=${{ secrets.MAILER_FRONTEND_URL }},MAILER_DEV_EMAIL=${{ secrets.MAILER_DEV_EMAIL }},ENV=production,FCM_CREDENTIALS_JSON_B64=${{ secrets.FCM_CREDENTIALS_JSON_B64 }}
+            --set-env-vars "^|^RABBIT_URL=$RABBIT_URL|RABBIT_QUEUE=$RABBIT_QUEUE|RABBIT_PREFETCH_COUNT=$RABBIT_PREFETCH_COUNT|USERS_BASE_URL=$USERS_BASE_URL|MAILER_FROM_EMAIL=$MAILER_FROM_EMAIL|MAILER_FROM_PSW=$MAILER_FROM_PSW|MAILER_FRONTEND_URL=$MAILER_FRONTEND_URL|MAILER_DEV_EMAIL=$MAILER_DEV_EMAIL|ENV=production|FCM_CREDENTIALS_JSON_B64=$FCM_CREDENTIALS_JSON_B64"

@@ -3,10 +3,14 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
+	"time"
 
 	"notification-service/internal/fcm"
 	"notification-service/internal/mailer"
@@ -37,7 +41,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	rabbitClient, err := rabbit.NewClient(*config.RabbitConfig, logger)
@@ -45,7 +49,11 @@ func main() {
 		logger.Error("failed to create RabbitMQ client", "error", err)
 		os.Exit(1)
 	}
-	defer rabbitClient.Close()
+	defer func() {
+		if err := rabbitClient.Close(); err != nil {
+			logger.Error("failed to close RabbitMQ client", "error", err)
+		}
+	}()
 
 	processor, err := buildProcessor(ctx, config, logger)
 	if err != nil {
@@ -53,7 +61,51 @@ func main() {
 		os.Exit(1)
 	}
 
+	healthDone := serveHealth(ctx, config.Port, rabbitClient, logger)
+
 	run(ctx, rabbitClient, *config.RabbitConfig.Queue, processor, logger)
+
+	<-healthDone
+}
+
+// serveHealth levanta el servidor HTTP de health check y lo apaga cuando se cancela ctx.
+// El canal devuelto se cierra cuando el servidor terminó de apagarse.
+func serveHealth(ctx context.Context, port string, rabbitClient *rabbit.Client, logger *slog.Logger) <-chan struct{} {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		if !rabbitClient.IsConnected() {
+			http.Error(w, "rabbit disconnected", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+
+	server := &http.Server{
+		Addr:              ":" + port,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	go func() {
+		logger.Info("health server listening", "port", port)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Error("health server failed", "error", err)
+		}
+	}()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			logger.Error("failed to shutdown health server", "error", err)
+		}
+	}()
+
+	return done
 }
 
 func buildProcessor(ctx context.Context, config *Config, logger *slog.Logger) (*Processor, error) {
@@ -85,8 +137,12 @@ func run(ctx context.Context, rabbitClient *rabbit.Client, queue string, process
 
 	logger.Info("starting to consume messages")
 
+	// El mensaje en curso se termina de procesar aunque llegue SIGTERM: Consume deja de
+	// entregar mensajes nuevos y cierra msgs, y recién ahí sale el loop.
+	processCtx := context.WithoutCancel(ctx)
+
 	for msg := range msgs {
-		if err := processor.process(ctx, msg); err != nil {
+		if err := processor.process(processCtx, msg); err != nil {
 			logger.Error("failed to process message", "error", err)
 			msg.Ack()
 			continue
