@@ -72,7 +72,7 @@ func main() {
 // El canal devuelto se cierra cuando el servidor terminó de apagarse.
 func serveHealth(ctx context.Context, port string, rabbitClient *rabbit.Client, logger *slog.Logger) <-chan struct{} {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		if !rabbitClient.IsConnected() {
 			http.Error(w, "rabbit disconnected", http.StatusServiceUnavailable)
 			return

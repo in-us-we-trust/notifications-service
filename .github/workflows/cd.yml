@@ -61,7 +61,7 @@ jobs:
           gcloud run deploy "$SERVICE_NAME" \
             --image "$IMAGE:${{ github.sha }}" \
             --region "$REGION" \
-            --no-allow-unauthenticated \
+            --allow-unauthenticated \
             --no-cpu-throttling \
             --max-instances 1 \
             --memory 512Mi \
