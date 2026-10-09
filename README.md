@@ -52,7 +52,7 @@ go run ./cmd
 
 ## Comportamiento esperado
 
-- El servicio abre una conexión con RabbitMQ y declara el exchange, las dos colas y los bindings.
+- El servicio abre una conexión con RabbitMQ y declara el exchange, las dos colas y los bindings
 - Consume `notification.intruder` (alerta de peligro) y `notification.unknown-person` (sugerencia para confirmar una persona desconocida).
 - El push sale solo a los usuarios owner del `deviceId`.
 - Intruso: el push usa `title`, `message` e `imageUrl` como vienen. Al tocarlo, la app abre esa alerta con esa foto. Si no hay token, o el push falla, se manda por email.
