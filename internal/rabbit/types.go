@@ -7,10 +7,15 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+const (
+	ExchangeNotifications = "notifications"
+	QueueIntruder         = "notification.intruder"
+	QueueUnknownPerson    = "notification.unknown-person"
+)
+
 type Config struct {
 	URL           *string `json:"url"`
 	PrefetchCount *int    `json:"prefetchCount"`
-	Queue         *string `json:"queue"`
 }
 
 func (c *Config) Validate() error {
@@ -20,13 +25,11 @@ func (c *Config) Validate() error {
 	if c.PrefetchCount == nil {
 		return fmt.Errorf("prefetchCount is required")
 	}
-	if c.Queue == nil || *c.Queue == "" {
-		return fmt.Errorf("queue is required")
-	}
 	return nil
 }
 
 type Message struct {
+	Queue    string
 	Body     []byte
 	delivery amqp.Delivery
 }
@@ -47,4 +50,22 @@ type Notification struct {
 	Title    string    `json:"title"`
 	Message  string    `json:"message"`
 	ImageURL string    `json:"imageUrl,omitempty"`
+}
+
+type UnknownPersonSuggestion struct {
+	DeviceID     string    `json:"deviceId"`
+	PersonID     string    `json:"personId"`
+	Time         time.Time `json:"time"`
+	DistinctDays int       `json:"distinctDays"`
+	ImageURLs    []string  `json:"imageUrls"`
+}
+
+type PushContent struct {
+	Type     string
+	DeviceID string
+	PersonID string
+	Title    string
+	Body     string
+	ImageURL string
+	Data     map[string]string
 }

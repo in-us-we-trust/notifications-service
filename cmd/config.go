@@ -28,7 +28,6 @@ func loadConfig() (*Config, error) {
 		RabbitConfig: &rabbit.Config{
 			URL:           toolbox.ToPointer(env.GetString("RABBIT_URL", "amqp://guest:guest@localhost:5672/")),
 			PrefetchCount: toolbox.ToPointer(1),
-			Queue:         toolbox.ToPointer(env.GetString("RABBIT_QUEUE", "")),
 		},
 		FCMConfig: &fcm.Config{
 			CredentialsPath: toolbox.ToPointer(env.GetString("FCM_CREDENTIALS_PATH", "")),

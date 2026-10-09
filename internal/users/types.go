@@ -29,3 +29,13 @@ type User struct {
 	IsOwner            bool                `json:"isOwner"`
 	NotificationTokens []NotificationToken `json:"notificationTokens"`
 }
+
+func Owners(contacts []User) []User {
+	owners := make([]User, 0, len(contacts))
+	for _, contact := range contacts {
+		if contact.IsOwner {
+			owners = append(owners, contact)
+		}
+	}
+	return owners
+}

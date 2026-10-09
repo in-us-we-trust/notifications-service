@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -63,7 +62,7 @@ func main() {
 
 	healthDone := serveHealth(ctx, config.Port, rabbitClient, logger)
 
-	run(ctx, rabbitClient, *config.RabbitConfig.Queue, processor, logger)
+	run(ctx, rabbitClient, processor, logger)
 
 	<-healthDone
 }
@@ -132,10 +131,12 @@ func buildProcessor(ctx context.Context, config *Config, logger *slog.Logger) (*
 	}, nil
 }
 
-func run(ctx context.Context, rabbitClient *rabbit.Client, queue string, processor *Processor, logger *slog.Logger) {
-	msgs := rabbitClient.Consume(ctx, queue)
+func run(ctx context.Context, rabbitClient *rabbit.Client, processor *Processor, logger *slog.Logger) {
+	msgs := rabbitClient.Consume(ctx)
 
-	logger.Info("starting to consume messages")
+	logger.Info("starting to consume messages",
+		"queues", []string{rabbit.QueueIntruder, rabbit.QueueUnknownPerson},
+	)
 
 	// El mensaje en curso se termina de procesar aunque llegue SIGTERM: Consume deja de
 	// entregar mensajes nuevos y cierra msgs, y recién ahí sale el loop.
@@ -143,7 +144,7 @@ func run(ctx context.Context, rabbitClient *rabbit.Client, queue string, process
 
 	for msg := range msgs {
 		if err := processor.process(processCtx, msg); err != nil {
-			logger.Error("failed to process message", "error", err)
+			logger.Error("failed to process message", "queue", msg.Queue, "error", err)
 			msg.Ack()
 			continue
 		}
@@ -154,26 +155,49 @@ func run(ctx context.Context, rabbitClient *rabbit.Client, queue string, process
 }
 
 func (p *Processor) process(ctx context.Context, msg rabbit.Message) error {
-	var notification rabbit.Notification
-	if err := json.Unmarshal(msg.Body, &notification); err != nil {
-		return fmt.Errorf("failed to unmarshal notification: %w", err)
+	p.logger.Info("received message", "queue", msg.Queue, "body", string(msg.Body))
+
+	content, err := rabbit.ContentFrom(msg.Queue, msg.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read notification: %w", err)
 	}
 
 	p.logger.Info("processing notification",
-		"deviceId", notification.DeviceID,
-		"title", notification.Title,
+		"type", content.Type,
+		"deviceId", content.DeviceID,
+		"personId", content.PersonID,
+		"title", content.Title,
 	)
 
-	contacts, err := p.usersClient.GetUsersByDevice(ctx, notification.DeviceID)
+	contacts, err := p.usersClient.GetUsersByDevice(ctx, content.DeviceID)
 	if err != nil {
-		return fmt.Errorf("failed to get contacts for device %s: %w", notification.DeviceID, err)
+		return fmt.Errorf("failed to get contacts for device %s: %w", content.DeviceID, err)
 	}
 
-	p.logger.Info("sending notifications", "deviceId", notification.DeviceID, "contacts", len(contacts))
+	owners := users.Owners(contacts)
+	p.logger.Info("sending notifications",
+		"type", content.Type,
+		"deviceId", content.DeviceID,
+		"owners", len(owners),
+		"contacts", len(contacts),
+	)
+	if len(owners) == 0 {
+		return nil
+	}
 
-	for _, user := range contacts {
+	sendEmail := content.Type != rabbit.QueueUnknownPerson
+
+	for _, user := range owners {
 		if len(user.NotificationTokens) == 0 {
-			if err := p.mailerClient.SendNotification(user.Email, user.Name, notification.Title, notification.Message, notification.ImageURL); err != nil {
+			if !sendEmail {
+				p.logger.Info("suggestion skipped, owner has no push token",
+					"userId", user.UserID,
+					"deviceId", content.DeviceID,
+					"personId", content.PersonID,
+				)
+				continue
+			}
+			if err := p.mailerClient.SendNotification(user.Email, user.Name, content.Title, content.Body, content.ImageURL); err != nil {
 				p.logger.Error("failed to send email",
 					"userId", user.UserID,
 					"email", user.Email,
@@ -186,7 +210,7 @@ func (p *Processor) process(ctx context.Context, msg rabbit.Message) error {
 		}
 
 		for _, nt := range user.NotificationTokens {
-			if err := p.fcmClient.Send(ctx, nt.Token, notification.Title, notification.Message); err != nil {
+			if err := p.fcmClient.Send(ctx, nt.Token, content.Title, content.Body, content.ImageURL, content.Data); err != nil {
 				p.logger.Error("failed to send push notification",
 					"userId", user.UserID,
 					"deviceName", nt.DeviceName,
@@ -208,7 +232,11 @@ func (p *Processor) process(ctx context.Context, msg rabbit.Message) error {
 				}
 				// }
 
-				if err := p.mailerClient.SendNotification(user.Email, user.Name, notification.Title, notification.Message, notification.ImageURL); err != nil {
+				if !sendEmail {
+					continue
+				}
+
+				if err := p.mailerClient.SendNotification(user.Email, user.Name, content.Title, content.Body, content.ImageURL); err != nil {
 					p.logger.Error("failed to send fallback email",
 						"userId", user.UserID,
 						"email", user.Email,

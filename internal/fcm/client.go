@@ -35,13 +35,33 @@ func NewClient(ctx context.Context, config Config) (*Client, error) {
 	return &Client{messaging: msgClient}, nil
 }
 
-func (c *Client) Send(ctx context.Context, token string, title string, body string) error {
+func (c *Client) Send(ctx context.Context, token string, title string, body string, imageURL string, data map[string]string) error {
 	message := &messaging.Message{
 		Token: token,
 		Notification: &messaging.Notification{
-			Title: title,
-			Body:  body,
+			Title:    title,
+			Body:     body,
+			ImageURL: imageURL,
 		},
+		Data: data,
+		Android: &messaging.AndroidConfig{
+			Priority: "high",
+		},
+	}
+	if imageURL != "" {
+		message.Android.Notification = &messaging.AndroidNotification{
+			ImageURL: imageURL,
+		}
+		message.APNS = &messaging.APNSConfig{
+			Payload: &messaging.APNSPayload{
+				Aps: &messaging.Aps{
+					MutableContent: true,
+				},
+			},
+			FCMOptions: &messaging.APNSFCMOptions{
+				ImageURL: imageURL,
+			},
+		}
 	}
 
 	_, err := c.messaging.Send(ctx, message)
